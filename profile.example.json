@@ -1,0 +1,33 @@
+{
+  "name": "Abderrahmen Jedidi",
+  "phone": "+216 XX XXX XXX",
+  "links": [
+    "github.com/AbdouJdidi"
+  ],
+  "school": "the Faculty of Sciences of Tunis (FST)",
+  "pfe_start": "February 2027",
+  "pfe_duration": "6-month",
+  "allowed_tech": [
+    "AWS", "GCP", "Docker", "CI/CD", "Linux", "Node.js", "Python"
+  ],
+
+  "angles": {
+    "cloud": {
+      "subject_area": "Cloud & DevOps",
+      "experience": "I have already completed four internships: DevOps and cloud work at Satoripop, full-stack development at Tunisie Telecom, software engineering with DevOps and AI-related tasks at VISIOAD, and full-stack development at Dot-IT. I hold the AWS Certified Solutions Architect – Associate and AWS Certified Cloud Practitioner certifications, and I work regularly with Docker, CI/CD pipelines and Linux.",
+      "highlights": "DevOps/cloud internship at Satoripop; AWS Solutions Architect – Associate; hands-on Docker, CI/CD, Linux, AWS, GCP."
+    },
+    "ai": {
+      "subject_area": "Applied AI & Software Engineering",
+      "experience": "I have already completed four internships, at Satoripop (DevOps/Cloud), Tunisie Telecom (full-stack), VISIOAD (software engineering, DevOps and AI-related work) and Dot-IT (full-stack). Alongside my studies I am building ClipForge, an AI clipping agent that automates parts of the short-form content workflow with minimal supervision. I also hold the AWS Certified Solutions Architect – Associate certification.",
+      "highlights": "ClipForge (AI agent that automates part of a content-production workflow); AI-related work at VISIOAD; Python backend; AWS certified."
+    },
+    "software": {
+      "subject_area": "Software Engineering",
+      "experience": "I have already completed four internships: full-stack development at Tunisie Telecom and Dot-IT, software engineering at VISIOAD, and DevOps/cloud work at Satoripop. I also take on freelance development projects, which has taught me to build around real client requirements and deadlines. I mainly work with Node.js and Python on the backend, and I hold the AWS Certified Solutions Architect – Associate certification.",
+      "highlights": "Full-stack internships at Tunisie Telecom and Dot-IT; freelance projects for real clients; Node.js and Python backend."
+    }
+  },
+
+  "closing": "I would be glad to discuss whether a PFE within your team could be possible. My CV is attached, and I am happy to share more details about any of my projects."
+}

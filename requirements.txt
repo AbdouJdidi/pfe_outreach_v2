@@ -1,0 +1,6 @@
+ddgs>=9.0.0
+requests>=2.32.0
+beautifulsoup4>=4.12.3
+python-dotenv>=1.0.1
+pydantic>=2.9.0
+rich>=13.9.0
