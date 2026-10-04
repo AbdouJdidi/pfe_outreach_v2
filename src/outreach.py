@@ -344,6 +344,16 @@ def clean_clause(clause, company_name):
     )
     clause = clause.rstrip(" .")
 
+    # "how DBB Software builds..." -> "how it builds..." (name is already in the sentence)
+    clause = re.sub(
+        rf"^(how|the way)\s+{re.escape(company_name)}(\s?\.[a-z]{{2,}})?\b",
+        r"\1 it", clause, flags=re.IGNORECASE,
+    )
+    # Website copy is written as "we/our" -> address the company as "you/your"
+    for old, new in [(r"\bwe're\b", "you're"), (r"\bwe\b", "you"),
+                     (r"\bour\b", "your"), (r"\bours\b", "yours")]:
+        clause = re.sub(old, new, clause, flags=re.IGNORECASE)
+
     # lowercase the first letter unless it starts an acronym/name ("AI", "EODATA")
     if len(clause) > 1 and clause[0].isupper() and not clause[1].isupper():
         clause = clause[0].lower() + clause[1:]
