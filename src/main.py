@@ -5,6 +5,7 @@ from .discovery import discover
 from .research import research_pending
 from .analyze import analyze
 from .contacts import discover_contacts, show_contacts
+from .sender import send_approved
 from .outreach import (
     generate_outreach,
     reset_outreach,
@@ -39,6 +40,11 @@ def build_parser():
     sub.add_parser("review", help="approve / edit / reject drafts one by one")
     sub.add_parser("reset-outreach", help="delete all unsent drafts")
 
+    p = sub.add_parser("send", help="send approved emails with your CV")
+    p.add_argument("--dry-run", action="store_true",
+                   help="send everything to yourself first")
+    p.add_argument("--limit", type=int, help="send at most N emails")
+
     return parser
 
 
@@ -70,6 +76,8 @@ def main():
         review_outreach()
     elif args.command == "reset-outreach":
         reset_outreach()
+    elif args.command == "send":
+        send_approved(dry_run=args.dry_run, limit=args.limit)
     else:
         parser.print_help()
 
