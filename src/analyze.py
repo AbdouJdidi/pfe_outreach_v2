@@ -1,7 +1,7 @@
 from .config import settings
 from .db import get_unanalyzed, save_analysis
-from .research import research_company
 from .llm import ask_qwen
+from .research import research_company
 
 
 def analyze():

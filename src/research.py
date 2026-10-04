@@ -1,15 +1,11 @@
 import re
-
-import requests
-
-from bs4 import BeautifulSoup
-
 from urllib.parse import urljoin
 
+import requests
+from bs4 import BeautifulSoup
+
 from .config import settings
-
 from .db import connect, save_fetched_text
-
 
 HEADERS = {
     "User-Agent": (

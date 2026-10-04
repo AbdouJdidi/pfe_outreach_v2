@@ -73,7 +73,7 @@ def open_smtp():
                 "   - GMAIL_APP_PASSWORD must be the 16-char App Password, not your normal password\n"
                 "   - 2-Step Verification must be ON for this account\n"
                 f"   Gmail said: {e.smtp_error.decode(errors='ignore')}\n"
-            )
+            ) from None
         except (smtplib.SMTPException, OSError) as e:
             errors.append(f"port {port}: {type(e).__name__}: {e}")
 

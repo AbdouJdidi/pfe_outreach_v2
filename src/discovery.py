@@ -10,7 +10,6 @@ from ddgs import DDGS
 from .config import settings
 from .db import upsert_company
 
-
 QUERIES = [
     # Europe / international
     "software companies Europe DevOps",
@@ -113,7 +112,6 @@ BLOCKED_DOMAINS = {
     "aiesec.org",
     "cdc.tn",
     "eit.edu.au",
-    "startup.gov.tn",
 }
 
 USER_AGENT = (

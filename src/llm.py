@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field, field_validator
 
 from .config import settings
 
-
 ALLOWED_DOMAINS = {
     "Cloud",
     "DevOps",

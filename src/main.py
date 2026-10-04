@@ -1,17 +1,17 @@
 import argparse
 
-from .db import init_db
-from .discovery import discover
-from .research import research_pending
 from .analyze import analyze
 from .contacts import discover_contacts, show_contacts
-from .sender import send_approved
+from .db import init_db
+from .discovery import discover
 from .outreach import (
     generate_outreach,
     reset_outreach,
     review_outreach,
     show_outreach,
 )
+from .research import research_pending
+from .sender import send_approved
 
 
 def build_parser():

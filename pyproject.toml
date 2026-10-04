@@ -1,0 +1,12 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+# E/F: real errors, I: import order, B: likely bugs, UP: modern syntax
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501"]  # long prompt strings are fine

@@ -8,4 +8,7 @@ data/*.jsonl
 .idea/
 profile.json
 data/cv/
-drafts.txtdrafts.txt
+drafts.txt
+.pytest_cache/
+.ruff_cache/
+.coverage

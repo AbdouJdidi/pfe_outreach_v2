@@ -1,0 +1,925 @@
+From b6d2358071389c53f448cc68dca4b149734b47b8 Mon Sep 17 00:00:00 2001
+From: Abderrahmen Jedidi <jdidiabderrahmen@gmail.com>
+Date: Sun, 4 Oct 2026 10:20:12 +0000
+Subject: [PATCH 1/2] test: add pytest suite (49 tests) and ruff lint fixes
+
+---
+ .env.example                    |   9 ++
+ .gitignore                      |   5 +-
+ pyproject.toml                  |  12 +++
+ requirements-dev.txt            |   4 +
+ src/analyze.py                  |   2 +-
+ src/config.py                   |   2 +
+ src/contacts.py                 |   3 +-
+ src/db.py                       |   3 +-
+ src/discovery.py                |   2 -
+ src/llm.py                      |   1 -
+ src/main.py                     |   8 +-
+ src/outreach.py                 |   1 -
+ src/report.py                   |  33 ++++++--
+ src/research.py                 |   6 +-
+ src/sender.py                   |   2 +-
+ tests/__init__.py               |   0
+ tests/conftest.py               |  48 +++++++++++
+ tests/test_contacts.py          |  33 ++++++++
+ tests/test_db.py                |  49 +++++++++++
+ tests/test_outreach_pipeline.py | 109 ++++++++++++++++++++++++
+ tests/test_outreach_text.py     | 143 ++++++++++++++++++++++++++++++++
+ tests/test_sender.py            | 105 +++++++++++++++++++++++
+ 22 files changed, 555 insertions(+), 25 deletions(-)
+ create mode 100644 pyproject.toml
+ create mode 100644 requirements-dev.txt
+ create mode 100644 tests/__init__.py
+ create mode 100644 tests/conftest.py
+ create mode 100644 tests/test_contacts.py
+ create mode 100644 tests/test_db.py
+ create mode 100644 tests/test_outreach_pipeline.py
+ create mode 100644 tests/test_outreach_text.py
+ create mode 100644 tests/test_sender.py
+
+diff --git a/.env.example b/.env.example
+index 9cb5830..626d390 100644
+--- a/.env.example
++++ b/.env.example
+@@ -7,3 +7,12 @@ CANDIDATE_PROFILE=Final-year software engineering student in Tunisia seeking a 6
+ PROFILE_PATH=profile.json
+ OUTREACH_NUM_CTX=8192
+ OUTREACH_MAX_ATTEMPTS=3
++
++# Sending (Gmail App Password: myaccount.google.com/apppasswords)
++GMAIL_ADDRESS=you@gmail.com
++GMAIL_APP_PASSWORD=
++SENDER_NAME=Your Name
++CV_PATH=C:/path/to/your_cv.pdf
++DAILY_SEND_LIMIT=15
++SEND_DELAY_MIN=60
++SEND_DELAY_MAX=180
+diff --git a/.gitignore b/.gitignore
+index 2182d6b..6a38072 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -8,4 +8,7 @@ data/*.jsonl
+ .idea/
+ profile.json
+ data/cv/
+-drafts.txtdrafts.txt
++drafts.txt
++.pytest_cache/
++.ruff_cache/
++.coverage
+diff --git a/pyproject.toml b/pyproject.toml
+new file mode 100644
+index 0000000..90cb940
+--- /dev/null
++++ b/pyproject.toml
+@@ -0,0 +1,12 @@
++[tool.pytest.ini_options]
++testpaths = ["tests"]
++addopts = "-q"
++
++[tool.ruff]
++line-length = 100
++target-version = "py311"
++
++[tool.ruff.lint]
++# E/F: real errors, I: import order, B: likely bugs, UP: modern syntax
++select = ["E", "F", "I", "B", "UP"]
++ignore = ["E501"]  # long prompt strings are fine
+diff --git a/requirements-dev.txt b/requirements-dev.txt
+new file mode 100644
+index 0000000..e81579e
+--- /dev/null
++++ b/requirements-dev.txt
+@@ -0,0 +1,4 @@
++-r requirements.txt
++pytest>=8.0
++pytest-cov>=5.0
++ruff>=0.6
+diff --git a/src/analyze.py b/src/analyze.py
+index 74cdce8..48c31f4 100644
+--- a/src/analyze.py
++++ b/src/analyze.py
+@@ -1,7 +1,7 @@
+ from .config import settings
+ from .db import get_unanalyzed, save_analysis
+-from .research import research_company
+ from .llm import ask_qwen
++from .research import research_company
+ 
+ 
+ def analyze():
+diff --git a/src/config.py b/src/config.py
+index ea44034..2ae5f97 100644
+--- a/src/config.py
++++ b/src/config.py
+@@ -1,6 +1,8 @@
+ import os
+ from dataclasses import dataclass
++
+ from dotenv import load_dotenv
++
+ load_dotenv()
+ @dataclass(frozen=True)
+ class Settings:
+diff --git a/src/contacts.py b/src/contacts.py
+index 62e6545..0b70d13 100644
+--- a/src/contacts.py
++++ b/src/contacts.py
+@@ -6,7 +6,6 @@ from bs4 import BeautifulSoup
+ 
+ from .db import get_companies_for_contacts, save_contact
+ 
+-
+ EMAIL_RE = re.compile(
+     r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b",
+     re.IGNORECASE,
+@@ -378,7 +377,7 @@ def discover_contacts():
+         total += discover_contacts_for_company(company)
+ 
+     print("\n" + "=" * 60)
+-    print(f"Contact discovery finished.")
++    print("Contact discovery finished.")
+     print(f"Email occurrences found: {total}")
+     print("=" * 60)
+ 
+diff --git a/src/db.py b/src/db.py
+index 13ee9c6..10669ea 100644
+--- a/src/db.py
++++ b/src/db.py
+@@ -1,7 +1,6 @@
++import json
+ import sqlite3
+ from pathlib import Path
+-import json
+-
+ 
+ DB_PATH = Path("data/pfe_agent.db")
+ 
+diff --git a/src/discovery.py b/src/discovery.py
+index b645f9f..3978327 100644
+--- a/src/discovery.py
++++ b/src/discovery.py
+@@ -10,7 +10,6 @@ from ddgs import DDGS
+ from .config import settings
+ from .db import upsert_company
+ 
+-
+ QUERIES = [
+     # Europe / international
+     "software companies Europe DevOps",
+@@ -113,7 +112,6 @@ BLOCKED_DOMAINS = {
+     "aiesec.org",
+     "cdc.tn",
+     "eit.edu.au",
+-    "startup.gov.tn",
+ }
+ 
+ USER_AGENT = (
+diff --git a/src/llm.py b/src/llm.py
+index 7813b37..c7a49db 100644
+--- a/src/llm.py
++++ b/src/llm.py
+@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field, field_validator
+ 
+ from .config import settings
+ 
+-
+ ALLOWED_DOMAINS = {
+     "Cloud",
+     "DevOps",
+diff --git a/src/main.py b/src/main.py
+index 41104df..415775e 100644
+--- a/src/main.py
++++ b/src/main.py
+@@ -1,17 +1,17 @@
+ import argparse
+ 
+-from .db import init_db
+-from .discovery import discover
+-from .research import research_pending
+ from .analyze import analyze
+ from .contacts import discover_contacts, show_contacts
+-from .sender import send_approved
++from .db import init_db
++from .discovery import discover
+ from .outreach import (
+     generate_outreach,
+     reset_outreach,
+     review_outreach,
+     show_outreach,
+ )
++from .research import research_pending
++from .sender import send_approved
+ 
+ 
+ def build_parser():
+diff --git a/src/outreach.py b/src/outreach.py
+index ceed478..35a347f 100644
+--- a/src/outreach.py
++++ b/src/outreach.py
+@@ -33,7 +33,6 @@ from .db import (
+ )
+ from .llm import DOMAIN_PATTERNS, build_relevant_evidence
+ 
+-
+ # ---------------------------------------------------------
+ # YOUR EMAIL — edit the wording here. Same for every company.
+ # Placeholders: {company} {start} {school} {company_paragraph}
+diff --git a/src/report.py b/src/report.py
+index 9466fd9..fe11506 100644
+--- a/src/report.py
++++ b/src/report.py
+@@ -1,10 +1,33 @@
+ import json
++
+ from rich.console import Console
+ from rich.table import Table
++
+ from .db import ranked
++
++COLUMNS = ["#", "Company", "Location", "Type", "Score", "Priority", "Domains", "PFE"]
++
++
+ def show_report(limit=30):
+-    rows=ranked(limit); t=Table(title=f'Top {limit} PFE Candidates')
+-    for c in ['#','Company','Location','Type','Score','Priority','Domains','PFE']: t.add_column(c)
+-    for i,r in enumerate(rows,1): t.add_row(str(i),r['name'][:28],(r['location'] or 'Unknown')[:18],r['company_type'] or '?',str(r['score']),r['priority'],', '.join(json.loads(r['domains'] or '[]'))[:30],r['pfe_potential'])
+-    Console().print(t)
+-    for i,r in enumerate(rows[:10],1): print(f'{i}. {r["name"]}: {r["reasoning"]}')
++    rows = ranked(limit)
++    table = Table(title=f"Top {limit} PFE Candidates")
++
++    for column in COLUMNS:
++        table.add_column(column)
++
++    for i, r in enumerate(rows, 1):
++        table.add_row(
++            str(i),
++            r["name"][:28],
++            (r["location"] or "Unknown")[:18],
++            r["company_type"] or "?",
++            str(r["score"]),
++            r["priority"],
++            ", ".join(json.loads(r["domains"] or "[]"))[:30],
++            r["pfe_potential"],
++        )
++
++    Console().print(table)
++
++    for i, r in enumerate(rows[:10], 1):
++        print(f"{i}. {r['name']}: {r['reasoning']}")
+diff --git a/src/research.py b/src/research.py
+index 9f66d0d..49db53b 100644
+--- a/src/research.py
++++ b/src/research.py
+@@ -1,16 +1,12 @@
+ import re
++from urllib.parse import urljoin
+ 
+ import requests
+-
+ from bs4 import BeautifulSoup
+ 
+-from urllib.parse import urljoin
+-
+ from .config import settings
+-
+ from .db import connect, save_fetched_text
+ 
+-
+ HEADERS = {
+     "User-Agent": (
+         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+diff --git a/src/sender.py b/src/sender.py
+index 30e3b8f..cca0bba 100644
+--- a/src/sender.py
++++ b/src/sender.py
+@@ -73,7 +73,7 @@ def open_smtp():
+                 "   - GMAIL_APP_PASSWORD must be the 16-char App Password, not your normal password\n"
+                 "   - 2-Step Verification must be ON for this account\n"
+                 f"   Gmail said: {e.smtp_error.decode(errors='ignore')}\n"
+-            )
++            ) from None
+         except (smtplib.SMTPException, OSError) as e:
+             errors.append(f"port {port}: {type(e).__name__}: {e}")
+ 
+diff --git a/tests/__init__.py b/tests/__init__.py
+new file mode 100644
+index 0000000..e69de29
+diff --git a/tests/conftest.py b/tests/conftest.py
+new file mode 100644
+index 0000000..446a433
+--- /dev/null
++++ b/tests/conftest.py
+@@ -0,0 +1,48 @@
++import json
++from dataclasses import replace
++from pathlib import Path
++
++import pytest
++
++from src import db
++
++ROOT = Path(__file__).resolve().parent.parent
++
++
++@pytest.fixture
++def temp_db(tmp_path, monkeypatch):
++    """Every test gets its own empty SQLite database."""
++    monkeypatch.setattr(db, "DB_PATH", tmp_path / "test.db")
++    db.init_db()
++    return db
++
++
++@pytest.fixture
++def profile():
++    return json.loads((ROOT / "profile.example.json").read_text(encoding="utf-8"))
++
++
++@pytest.fixture
++def override_settings(monkeypatch):
++    """Settings is a frozen dataclass: swap in a modified copy per module."""
++
++    def _override(module, **changes):
++        monkeypatch.setattr(module, "settings", replace(module.settings, **changes))
++
++    return _override
++
++
++def add_company(name, domain, text, domains=("Software Engineering",)):
++    db.upsert_company({
++        "name": name, "domain": domain, "website": f"https://{domain}", "verified": 1,
++    })
++    with db.connect() as c:
++        company_id = c.execute(
++            "SELECT id FROM companies WHERE domain = ?", (domain,)
++        ).fetchone()[0]
++    db.save_fetched_text(company_id, text)
++    db.save_analysis(company_id, {
++        "score": 70, "priority": "HIGH", "domains": list(domains),
++        "remote_compatible": False, "pfe_potential": "unknown", "reasoning": "",
++    })
++    return company_id
+diff --git a/tests/test_contacts.py b/tests/test_contacts.py
+new file mode 100644
+index 0000000..2207976
+--- /dev/null
++++ b/tests/test_contacts.py
+@@ -0,0 +1,33 @@
++import pytest
++
++from src.contacts import classify_email, confidence_for_email, extract_emails
++
++
++@pytest.mark.parametrize("email,expected", [
++    ("careers@acme.com", "careers"),
++    ("jobs@acme.com", "jobs"),
++    ("talent@acme.com", "recruiting"),
++    ("hr@acme.com", "hr"),
++    ("contact@acme.com", "contact"),
++    ("info@acme.com", "info"),
++    ("dmitry@acme.com", "other"),
++])
++def test_classify_email(email, expected):
++    assert classify_email(email) == expected
++
++
++def test_extract_emails_cleans_and_filters():
++    text = "Write to Jobs@Acme.com. Or test@example.com, logo@2x.png and hr@acme.com)"
++    assert extract_emails(text) == {"jobs@acme.com", "hr@acme.com"}
++
++
++def test_extract_emails_empty():
++    assert extract_emails("") == set()
++    assert extract_emails(None) == set()
++
++
++def test_career_page_increases_confidence():
++    on_home = confidence_for_email("info@acme.com", "https://acme.com")
++    on_careers = confidence_for_email("info@acme.com", "https://acme.com/careers")
++    assert on_careers > on_home
++    assert on_careers <= 100
+diff --git a/tests/test_db.py b/tests/test_db.py
+new file mode 100644
+index 0000000..6a8975c
+--- /dev/null
++++ b/tests/test_db.py
+@@ -0,0 +1,49 @@
++import sqlite3
++
++import pytest
++
++from src import db
++from tests.conftest import add_company
++
++
++def test_migration_adds_columns_to_old_database(tmp_path, monkeypatch):
++    path = tmp_path / "old.db"
++    old = sqlite3.connect(path)
++    old.execute("""
++        CREATE TABLE outreach (
++            id INTEGER PRIMARY KEY AUTOINCREMENT, company_id INTEGER NOT NULL,
++            contact_id INTEGER, subject TEXT NOT NULL, body TEXT NOT NULL,
++            status TEXT DEFAULT 'draft', created_at TEXT DEFAULT CURRENT_TIMESTAMP,
++            updated_at TEXT DEFAULT CURRENT_TIMESTAMP)
++    """)
++    old.execute("INSERT INTO outreach (company_id, subject, body) VALUES (1, 's', 'b')")
++    old.commit()
++    old.close()
++
++    monkeypatch.setattr(db, "DB_PATH", path)
++    db.init_db()
++
++    with db.connect() as c:
++        columns = {row["name"] for row in c.execute("PRAGMA table_info(outreach)")}
++        rows = c.execute("SELECT COUNT(*) FROM outreach").fetchone()[0]
++
++    assert {"evidence_quote", "angle", "sent_at", "greeting"} <= columns
++    assert rows == 1  # existing data kept
++
++
++def test_delete_unsent_keeps_approved_and_sent(temp_db):
++    add_company("Acme", "acme.com", "Acme builds software.")
++    for status in ["draft", "needs_review", "rejected", "approved", "sent"]:
++        temp_db.save_outreach(1, None, "s", "b", status=status)
++
++    assert temp_db.delete_unsent_outreach() == 3
++    assert sorted(r["status"] for r in temp_db.get_outreach()) == ["approved", "sent"]
++
++
++def test_update_outreach_rejects_unknown_status(temp_db):
++    add_company("Acme", "acme.com", "Acme builds software.")
++    temp_db.save_outreach(1, None, "s", "b")
++    outreach_id = temp_db.get_outreach()[0]["id"]
++
++    with pytest.raises(ValueError):
++        temp_db.update_outreach(outreach_id, status="maybe")
+diff --git a/tests/test_outreach_pipeline.py b/tests/test_outreach_pipeline.py
+new file mode 100644
+index 0000000..5855518
+--- /dev/null
++++ b/tests/test_outreach_pipeline.py
+@@ -0,0 +1,109 @@
++"""generate_outreach end to end, with the LLM replaced by a fake."""
++
++from src import outreach
++from tests.conftest import add_company
++
++CLEVER_TEXT = (
++    "Clever Cloud is a European PaaS.\n\n"
++    "The platform detects the language, configures the right environment and "
++    "deploys applications from Git with no manual configuration."
++)
++
++
++def setup_companies(db):
++    clever = add_company("Clever Cloud", "clever-cloud.com", CLEVER_TEXT, ["Cloud"])
++    db.save_contact(clever, "jobs@clever-cloud.com", "jobs", "https://clever-cloud.com/jobs", 80)
++    db.save_contact(clever, "contact@clever-cloud.com", "contact", "https://clever-cloud.com", 50)
++    db.save_contact(clever, "sales.person@clever-cloud.com", "other", "https://clever-cloud.com/blog", 30)
++    return clever
++
++
++def fake_llm(responses):
++    """Return the given responses in order and record every prompt."""
++    calls = []
++
++    def _ask(prompt, temperature):
++        calls.append(prompt)
++        return responses[min(len(calls) - 1, len(responses) - 1)]
++
++    return _ask, calls
++
++
++GOOD = {
++    "relevant": True,
++    "company_name": "Clever Cloud",
++    "evidence_quote": "The platform detects the language, configures the right environment",
++    "interest_clause": "the way it deploys applications from Git with no manual configuration",
++}
++
++HALLUCINATED = {
++    "relevant": True,
++    "company_name": "Clever Cloud",
++    "evidence_quote": "Clever Cloud is the world leader in hiring",
++    "interest_clause": "how you use AI and data to make hiring more efficient and reliable",
++}
++
++
++def run(monkeypatch, profile, responses):
++    ask, calls = fake_llm(responses)
++    monkeypatch.setattr(outreach, "ask_ollama", ask)
++    monkeypatch.setattr(outreach, "load_profile", lambda: profile)
++    outreach.generate_outreach()
++    return calls
++
++
++def test_one_email_per_company_to_best_contact(temp_db, monkeypatch, profile):
++    setup_companies(temp_db)
++    run(monkeypatch, profile, [GOOD])
++
++    rows = temp_db.get_outreach()
++    assert len(rows) == 1
++    assert rows[0]["email"] == "jobs@clever-cloud.com"
++
++
++def test_clean_draft(temp_db, monkeypatch, profile):
++    setup_companies(temp_db)
++    run(monkeypatch, profile, [GOOD])
++
++    row = temp_db.get_outreach()[0]
++    assert row["status"] == "draft"
++    assert row["angle"] == "cloud"
++    assert "What interests me about Clever Cloud is the way it deploys" in row["body"]
++    assert "Cloud & DevOps" in row["subject"]
++
++
++def test_hallucination_is_retried_with_feedback(temp_db, monkeypatch, profile):
++    setup_companies(temp_db)
++    calls = run(monkeypatch, profile, [HALLUCINATED, GOOD])
++
++    assert len(calls) == 2
++    assert "REJECTED" in calls[1]  # the model was told why
++    assert temp_db.get_outreach()[0]["status"] == "draft"
++    assert "hiring" not in temp_db.get_outreach()[0]["body"]
++
++
++def test_persistent_hallucination_needs_review(temp_db, monkeypatch, profile):
++    setup_companies(temp_db)
++    run(monkeypatch, profile, [HALLUCINATED])
++
++    row = temp_db.get_outreach()[0]
++    assert row["status"] == "needs_review"
++    assert row["notes"]
++
++
++def test_irrelevant_company_is_flagged(temp_db, monkeypatch, profile):
++    setup_companies(temp_db)
++    run(monkeypatch, profile, [{"relevant": False}])
++
++    row = temp_db.get_outreach()[0]
++    assert row["status"] == "needs_review"
++    assert "not a tech company" in row["notes"]
++
++
++def test_rerun_does_not_duplicate(temp_db, monkeypatch, profile):
++    setup_companies(temp_db)
++    run(monkeypatch, profile, [GOOD])
++    calls = run(monkeypatch, profile, [GOOD])
++
++    assert calls == []
++    assert len(temp_db.get_outreach()) == 1
+diff --git a/tests/test_outreach_text.py b/tests/test_outreach_text.py
+new file mode 100644
+index 0000000..7952b0f
+--- /dev/null
++++ b/tests/test_outreach_text.py
+@@ -0,0 +1,143 @@
++"""The deterministic text logic: what makes every email correct and readable."""
++
++import pytest
++
++from src.outreach import (
++    angle_from_clause,
++    build_body,
++    build_company_paragraph,
++    build_greeting,
++    build_subject,
++    clean_clause,
++    display_company_name,
++    resolve_company_name,
++    validate_clause,
++)
++
++SOURCE = (
++    "DBB Software builds production-ready AI features, agentic systems, "
++    "and private AI platforms, backed by senior engineers."
++)
++QUOTE = "DBB Software builds production-ready AI features, agentic systems"
++
++
++# --- clean_clause: grammar fixes -------------------------------------------
++
++@pytest.mark.parametrize("raw,expected", [
++    # repeated company name -> "it"
++    ("how DBB Software builds AI platforms", "how it builds AI platforms"),
++    # website "we" -> "you"
++    ("how we provide over 90 PB of data", "how you provide over 90 PB of data"),
++    # noun phrase -> needs "your focus on"
++    ("custom software and cloud development", "your focus on custom software and cloud development"),
++    # model repeated the sentence start
++    ("What interests me about DBB Software is how it ships agents.", "how it ships agents"),
++    # acronym at the start stays uppercase
++    ("AI platforms for banks", "your focus on AI platforms for banks"),
++])
++def test_clean_clause(raw, expected):
++    assert clean_clause(raw, "DBB Software") == expected
++
++
++# --- validate_clause: anti-hallucination guardrails -------------------------
++
++def test_grounded_clause_passes():
++    clause = "how it builds production-ready AI features and agentic systems"
++    assert validate_clause(clause, QUOTE, SOURCE) == []
++
++
++def test_quote_must_exist_on_website():
++    clause = "how it builds production-ready AI features and agentic systems"
++    problems = validate_clause(clause, "DBB Software is the market leader in banking", SOURCE)
++    assert any("not found" in p for p in problems)
++
++
++def test_clause_with_words_not_on_website_is_rejected():
++    # The real failure we saw: the model copied the prompt's example.
++    clause = "how you use AI and data to make hiring more efficient and reliable"
++    problems = validate_clause(clause, QUOTE, SOURCE)
++    assert any("not on the website" in p or "copied the example" in p for p in problems)
++
++
++def test_invented_number_is_rejected():
++    clause = "how it builds AI features for 500 enterprise clients worldwide"
++    problems = validate_clause(clause, QUOTE, SOURCE)
++    assert any('"500"' in p for p in problems)
++
++
++def test_clause_about_the_student_is_rejected():
++    clause = "how my experience fits production-ready AI features"
++    problems = validate_clause(clause, QUOTE, SOURCE)
++    assert any("student" in p for p in problems)
++
++
++def test_too_short_clause_is_rejected():
++    problems = validate_clause("AI stuff", QUOTE, SOURCE)
++    assert any("words" in p for p in problems)
++
++
++# --- angle: the closing sentence must match the clause ----------------------
++
++@pytest.mark.parametrize("clause,expected", [
++    ("how it builds production-ready AI features and agentic systems", "ai"),
++    ("the way it deploys applications from Git with no manual configuration", "cloud"),
++    ("how it helps local businesses find customers", "software"),
++])
++def test_angle_from_clause(clause, expected):
++    assert angle_from_clause(clause, "software") == expected
++
++
++def test_company_paragraph_uses_matching_interest():
++    text = build_company_paragraph("Clever Cloud", "how it automates deployment", "cloud")
++    assert text.startswith("What interests me about Clever Cloud is how it automates deployment.")
++    assert "cloud infrastructure and DevOps" in text
++
++
++# --- names and greetings ----------------------------------------------------
++
++def test_display_name_from_domain():
++    assert display_company_name({"name": "dbbsoftware.com"}) == "Dbbsoftware"
++
++
++def test_resolve_name_accepts_name_matching_domain():
++    company = {"name": "dbbsoftware.com", "website": "https://dbbsoftware.com", "fetched_text": SOURCE}
++    assert resolve_company_name(company, "DBB Software") == "DBB Software"
++
++
++def test_resolve_name_rejects_invented_name():
++    company = {"name": "dbbsoftware.com", "website": "https://dbbsoftware.com", "fetched_text": SOURCE}
++    assert resolve_company_name(company, "Totally Different Inc") == "Dbbsoftware"
++
++
++def test_resolve_name_strips_domain_ending():
++    company = {"name": "Ween.tn", "website": "https://ween.tn", "fetched_text": "Ween .tn Annuaire"}
++    assert resolve_company_name(company, "Ween .tn") == "Ween"
++
++
++@pytest.mark.parametrize("email,expected", [
++    ("erik.simins@workwolf.com", "Dear Erik Simins,"),
++    ("jobs@workwolf.com", "Dear Workwolf Team,"),
++    ("dmitry@workwolf.com", "Dear Workwolf Team,"),  # can't tell first name from surname
++])
++def test_build_greeting(email, expected):
++    assert build_greeting({"email": email}, "Workwolf") == expected
++
++
++# --- full email -------------------------------------------------------------
++
++def test_body_contains_template_and_signature(profile):
++    paragraph = build_company_paragraph("Workwolf", "how it uses AI to improve hiring", "ai")
++    body = build_body(profile, "ai", "Dear Workwolf Team,", "Workwolf", paragraph)
++
++    assert body.startswith("Dear Workwolf Team,")
++    assert "graduation internship (PFE) at Workwolf" in body
++    assert "AWS Certified Solutions Architect" in body
++    assert paragraph in body
++    assert body.rstrip().endswith(profile["links"][-1])
++    assert "{" not in body  # no unfilled placeholders
++
++
++def test_subject(profile):
++    subject = build_subject(profile, "cloud")
++    assert "Cloud & DevOps" in subject
++    assert profile["pfe_start"] in subject
+diff --git a/tests/test_sender.py b/tests/test_sender.py
+new file mode 100644
+index 0000000..ce51215
+--- /dev/null
++++ b/tests/test_sender.py
+@@ -0,0 +1,105 @@
++"""Sending, with Gmail replaced by a fake SMTP server."""
++
++import pytest
++
++from src import sender
++
++APPROVED = [
++    ("Clever Cloud", "jobs@clever-cloud.com"),
++    ("Lynkod", "contact@lynkod.com"),
++]
++
++
++class FakeSMTP:
++    sent = []
++
++    def __enter__(self):
++        return self
++
++    def __exit__(self, *args):
++        return False
++
++    def send_message(self, msg):
++        FakeSMTP.sent.append({
++            "to": msg["To"],
++            "subject": msg["Subject"],
++            "attachments": [p.get_filename() for p in msg.iter_attachments()],
++        })
++
++
++@pytest.fixture
++def smtp(monkeypatch):
++    FakeSMTP.sent = []
++    monkeypatch.setattr(sender, "open_smtp", FakeSMTP)
++    monkeypatch.setattr(sender.time, "sleep", lambda s: None)
++    return FakeSMTP
++
++
++@pytest.fixture
++def ready(temp_db, tmp_path, override_settings):
++    cv = tmp_path / "My_CV.pdf"
++    cv.write_bytes(b"%PDF-1.4 test")
++    override_settings(
++        sender, gmail_address="me@gmail.com", gmail_app_password="x" * 16, cv_path=str(cv),
++    )
++
++    for i, (name, email) in enumerate(APPROVED, start=1):
++        temp_db.upsert_company({"name": name, "domain": f"c{i}.com", "verified": 1})
++        temp_db.save_contact(i, email, "jobs", "x", 80)
++        temp_db.save_outreach(i, i, f"PFE Application – {name}", "Dear Team,\n\nHello", status="approved")
++
++    return temp_db
++
++
++def statuses(db):
++    return sorted(r["status"] for r in db.get_outreach())
++
++
++def test_dry_run_sends_only_to_me_and_changes_nothing(ready, smtp):
++    sender.send_approved(dry_run=True)
++
++    assert [m["to"] for m in smtp.sent] == ["me@gmail.com", "me@gmail.com"]
++    assert smtp.sent[0]["subject"].startswith("[TEST → jobs@clever-cloud.com]")
++    assert statuses(ready) == ["approved", "approved"]
++
++
++def test_live_send_attaches_cv_and_marks_sent(ready, smtp, monkeypatch):
++    monkeypatch.setattr("builtins.input", lambda *_: "SEND")
++    sender.send_approved()
++
++    assert {m["to"] for m in smtp.sent} == {"jobs@clever-cloud.com", "contact@lynkod.com"}
++    assert all(m["attachments"] == ["My_CV.pdf"] for m in smtp.sent)
++    assert statuses(ready) == ["sent", "sent"]
++
++
++def test_live_send_needs_confirmation(ready, smtp, monkeypatch):
++    monkeypatch.setattr("builtins.input", lambda *_: "no")
++    sender.send_approved()
++
++    assert smtp.sent == []
++    assert statuses(ready) == ["approved", "approved"]
++
++
++def test_sent_emails_are_never_sent_twice(ready, smtp, monkeypatch):
++    monkeypatch.setattr("builtins.input", lambda *_: "SEND")
++    sender.send_approved()
++    sender.send_approved()
++
++    assert len(smtp.sent) == 2
++
++
++def test_daily_limit(ready, smtp, monkeypatch, override_settings):
++    override_settings(sender, daily_send_limit=1)
++    monkeypatch.setattr("builtins.input", lambda *_: "SEND")
++    sender.send_approved()
++
++    assert len(smtp.sent) == 1
++    assert statuses(ready) == ["approved", "sent"]
++
++
++def test_missing_cv_stops_before_sending(ready, smtp, override_settings):
++    override_settings(sender, cv_path="does/not/exist.pdf")
++
++    with pytest.raises(SystemExit, match="CV not found"):
++        sender.send_approved(dry_run=True)
++    assert smtp.sent == []
+-- 
+2.43.0
+
+From 6f22b9d772df97109def1265aa4bc746551d2948 Mon Sep 17 00:00:00 2001
+From: Abderrahmen Jedidi <jdidiabderrahmen@gmail.com>
+Date: Sun, 4 Oct 2026 10:20:12 +0000
+Subject: [PATCH 2/2] ci: GitHub Actions lint + test matrix (Ubuntu/Windows,
+ Python 3.11/3.12)
+
+---
+ .github/workflows/ci.yml | 43 ++++++++++++++++++++++++++++++++++++++++
+ README.md                | 16 ++++++++++++++-
+ 2 files changed, 58 insertions(+), 1 deletion(-)
+ create mode 100644 .github/workflows/ci.yml
+
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+new file mode 100644
+index 0000000..f8d10ff
+--- /dev/null
++++ b/.github/workflows/ci.yml
+@@ -0,0 +1,43 @@
++name: CI
++
++on:
++  push:
++    branches: [master]
++  pull_request:
++
++jobs:
++  lint:
++    name: Lint (ruff)
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-python@v5
++        with:
++          python-version: "3.12"
++      - run: pip install ruff
++      - run: ruff check . --output-format=github
++
++  test:
++    name: Tests (${{ matrix.os }}, Python ${{ matrix.python }})
++    needs: lint
++    runs-on: ${{ matrix.os }}
++    strategy:
++      fail-fast: false
++      matrix:
++        os: [ubuntu-latest, windows-latest]
++        python: ["3.11", "3.12"]
++    steps:
++      - uses: actions/checkout@v4
++
++      - uses: actions/setup-python@v5
++        with:
++          python-version: ${{ matrix.python }}
++          cache: pip
++          cache-dependency-path: requirements*.txt
++
++      - name: Install dependencies
++        run: pip install -r requirements-dev.txt
++
++      - name: Run tests
++        # No Ollama, no Gmail, no internet needed: the LLM and SMTP are faked.
++        run: pytest --cov=src --cov-report=term-missing
+diff --git a/README.md b/README.md
+index 4ef3a41..73664f8 100644
+--- a/README.md
++++ b/README.md
+@@ -1,4 +1,6 @@
+-# PFE Outreach Agent — V1
++# PFE Outreach Agent
++
++[![CI](https://github.com/AbdouJdidi/pfe_outreach_v2/actions/workflows/ci.yml/badge.svg)](https://github.com/AbdouJdidi/pfe_outreach_v2/actions/workflows/ci.yml)
+ 
+ Local-first PFE company discovery + qualification agent.
+ 
+@@ -54,3 +56,15 @@ The fixed parts of each email (intro, experience, closing, signature) come from
+ `profile.json` is gitignored: keep personal details there, not in code.
+ 
+ V2 still does NOT send email. It discovers, researches, scores, and ranks companies locally. Contact discovery, personalized emails, approval, Gmail sending, and follow-up tracking come next.
++
++
++## Development
++
++```powershell
++pip install -r requirements-dev.txt
++ruff check .          # lint
++pytest                # 49 tests, no Ollama / Gmail / internet needed
++```
++
++The LLM and Gmail are replaced by fakes in the tests, so CI runs anywhere.
++Every push to `master` runs lint + tests on Ubuntu and Windows (Python 3.11 and 3.12).
+-- 
+2.43.0

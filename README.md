@@ -1,4 +1,6 @@
-# PFE Outreach Agent — V1
+# PFE Outreach Agent
+
+[![CI](https://github.com/AbdouJdidi/pfe_outreach_v2/actions/workflows/ci.yml/badge.svg)](https://github.com/AbdouJdidi/pfe_outreach_v2/actions/workflows/ci.yml)
 
 Local-first PFE company discovery + qualification agent.
 
@@ -54,3 +56,15 @@ The fixed parts of each email (intro, experience, closing, signature) come from 
 `profile.json` is gitignored: keep personal details there, not in code.
 
 V2 still does NOT send email. It discovers, researches, scores, and ranks companies locally. Contact discovery, personalized emails, approval, Gmail sending, and follow-up tracking come next.
+
+
+## Development
+
+```powershell
+pip install -r requirements-dev.txt
+ruff check .          # lint
+pytest                # 49 tests, no Ollama / Gmail / internet needed
+```
+
+The LLM and Gmail are replaced by fakes in the tests, so CI runs anywhere.
+Every push to `master` runs lint + tests on Ubuntu and Windows (Python 3.11 and 3.12).

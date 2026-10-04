@@ -33,7 +33,6 @@ from .db import (
 )
 from .llm import DOMAIN_PATTERNS, build_relevant_evidence
 
-
 # ---------------------------------------------------------
 # YOUR EMAIL — edit the wording here. Same for every company.
 # Placeholders: {company} {start} {school} {company_paragraph}

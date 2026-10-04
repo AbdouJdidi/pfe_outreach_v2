@@ -6,7 +6,6 @@ from bs4 import BeautifulSoup
 
 from .db import get_companies_for_contacts, save_contact
 
-
 EMAIL_RE = re.compile(
     r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b",
     re.IGNORECASE,
@@ -378,7 +377,7 @@ def discover_contacts():
         total += discover_contacts_for_company(company)
 
     print("\n" + "=" * 60)
-    print(f"Contact discovery finished.")
+    print("Contact discovery finished.")
     print(f"Email occurrences found: {total}")
     print("=" * 60)
 
