@@ -364,12 +364,14 @@ def discover_contacts_for_company(company):
     return found
 
 
-def discover_contacts():
-    companies = get_companies_for_contacts()
+def discover_contacts(include_scanned=False):
+    companies = get_companies_for_contacts(include_scanned)
 
     if not companies:
-        print("No analyzed companies found.")
+        print("No new analyzed companies to scan for contacts.")
         return
+
+    print(f"Scanning {len(companies)} companies for contacts...")
 
     total = 0
 

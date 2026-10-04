@@ -23,4 +23,5 @@ class Settings:
     daily_send_limit: int = int(os.getenv("DAILY_SEND_LIMIT", "15"))
     send_delay_min: int = int(os.getenv("SEND_DELAY_MIN", "60"))
     send_delay_max: int = int(os.getenv("SEND_DELAY_MAX", "180"))
+    min_outreach_score: int = int(os.getenv("MIN_OUTREACH_SCORE", "50"))
 settings = Settings()

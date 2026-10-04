@@ -371,10 +371,13 @@ def get_contacts(limit=100):
                 contacts.email,
                 contacts.contact_type,
                 contacts.source_url,
-                contacts.confidence
+                contacts.confidence,
+                analyses.score
             FROM contacts
             JOIN companies
                 ON companies.id = contacts.company_id
+            LEFT JOIN analyses
+                ON analyses.company_id = contacts.company_id
             ORDER BY
                 contacts.confidence DESC,
                 companies.name
@@ -382,48 +385,54 @@ def get_contacts(limit=100):
         """, (limit,)).fetchall()
 
 
-def get_companies_for_contacts():
+def get_companies_for_contacts(include_scanned=False):
+    """Analyzed companies, best first. By default skip ones that already have contacts."""
+    query = """
+        SELECT
+            c.id,
+            c.name,
+            c.domain,
+            c.website,
+            c.fetched_text,
+            a.raw_json
+        FROM companies c
+        JOIN analyses a
+            ON a.company_id = c.id
+        WHERE c.verified = 1
+    """
+    if not include_scanned:
+        query += " AND NOT EXISTS (SELECT 1 FROM contacts ct WHERE ct.company_id = c.id)"
+    query += " ORDER BY a.score DESC"
+
     with connect() as c:
-        return c.execute("""
-            SELECT
-                c.id,
-                c.name,
-                c.domain,
-                c.website,
-                c.fetched_text,
-                a.raw_json
-            FROM companies c
-            JOIN analyses a
-                ON a.company_id = c.id
-            WHERE c.verified = 1
-            ORDER BY a.score DESC
-        """).fetchall()
+        return c.execute(query).fetchall()
 
 
 def stats():
+    """Pipeline funnel: how many companies reach each stage."""
     with connect() as c:
-        companies = c.execute(
-            "SELECT COUNT(*) FROM companies"
-        ).fetchone()[0]
+        def one(sql):
+            return c.execute(sql).fetchone()[0]
 
-        verified = c.execute(
-            "SELECT COUNT(*) FROM companies WHERE verified = 1"
-        ).fetchone()[0]
-
-        analyzed = c.execute(
-            "SELECT COUNT(*) FROM analyses"
-        ).fetchone()[0]
-
-        contacts = c.execute(
-            "SELECT COUNT(*) FROM contacts"
-        ).fetchone()[0]
-
-        return {
-            "companies": companies,
-            "verified": verified,
-            "analyzed": analyzed,
-            "contacts": contacts,
+        funnel = {
+            "companies": one("SELECT COUNT(*) FROM companies WHERE verified = 1"),
+            "researched": one(
+                "SELECT COUNT(*) FROM companies WHERE verified = 1 "
+                "AND fetched_text IS NOT NULL AND fetched_text != ''"
+            ),
+            "analyzed": one("SELECT COUNT(*) FROM analyses"),
+            "with_contact": one("SELECT COUNT(DISTINCT company_id) FROM contacts"),
+            "with_outreach": one("SELECT COUNT(DISTINCT company_id) FROM outreach"),
         }
+        priorities = dict(c.execute(
+            "SELECT priority, COUNT(*) FROM analyses GROUP BY priority"
+        ).fetchall())
+        outreach = dict(c.execute(
+            "SELECT status, COUNT(*) FROM outreach GROUP BY status"
+        ).fetchall())
+
+    return {"funnel": funnel, "priorities": priorities, "outreach": outreach}
+
 
 OUTREACH_STATUSES = {"draft", "needs_review", "approved", "rejected", "sent"}
 

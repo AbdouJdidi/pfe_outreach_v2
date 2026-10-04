@@ -121,10 +121,15 @@ def contact_rank(contact):
     return None
 
 
-def choose_contacts(limit=500):
+def choose_contacts(limit=5000, min_score=None):
+    """One best contact per company, skipping companies the analysis scored too low."""
+    min_score = settings.min_outreach_score if min_score is None else min_score
     best = {}
 
     for contact in get_contacts(limit):
+        if (contact["score"] or 0) < min_score:
+            continue
+
         rank = contact_rank(contact)
 
         if rank is None:

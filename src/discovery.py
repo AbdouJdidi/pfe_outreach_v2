@@ -8,7 +8,7 @@ from bs4 import BeautifulSoup
 from ddgs import DDGS
 
 from .config import settings
-from .db import upsert_company
+from .db import connect, upsert_company
 
 QUERIES = [
     # Europe / international
@@ -367,22 +367,82 @@ def verify_company(url):
         return None
 
 
-def discover():
+QUERIES_FILE = Path("queries.txt")
+
+# First matching keyword wins, so cities come before countries.
+LOCATION_KEYWORDS = [
+    ("sousse", "Sousse, Tunisia"),
+    ("sfax", "Sfax, Tunisia"),
+    ("ghazala", "Tunis, Tunisia"),
+    ("tunis ", "Tunis, Tunisia"),
+    ("tunisi", "Tunisia"),
+    ("tunisie", "Tunisia"),
+    ("paris", "Paris, France"),
+    ("lyon", "Lyon, France"),
+    ("france", "France"),
+    ("montréal", "Montreal, Canada"),
+    ("montreal", "Montreal, Canada"),
+    ("berlin", "Berlin, Germany"),
+    ("germany", "Germany"),
+    ("belgium", "Belgium"),
+    ("switzerland", "Switzerland"),
+    ("netherlands", "Netherlands"),
+    ("europe", "Europe"),
+    ("remote", "Remote"),
+]
+
+
+def load_queries(path=QUERIES_FILE):
+    """Read searches from queries.txt; fall back to the built-in list."""
+    path = Path(path)
+
+    if not path.exists():
+        return list(QUERIES)
+
+    queries = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and line not in queries:
+            queries.append(line)
+
+    return queries or list(QUERIES)
+
+
+def infer_location(query):
+    query = f" {query.lower()} "
+    for keyword, location in LOCATION_KEYWORDS:
+        if keyword in query:
+            return location
+    return None
+
+
+def known_domains():
+    with connect() as c:
+        return {row[0] for row in c.execute("SELECT domain FROM companies")}
+
+
+def discover(queries=None):
     Path("data").mkdir(exist_ok=True)
 
+    queries = queries or load_queries()
     raw_path = Path("data/raw_search.jsonl")
 
-    processed_domains = set()
+    # Skip companies already in the database: re-runs only verify new ones.
+    already_known = known_domains()
+    processed_domains = set(already_known)
+    skipped_known = 0
 
     raw_count = 0
     verified_count = 0
     rejected_count = 0
 
-    with raw_path.open("w", encoding="utf-8") as raw_file:
+    print(f"{len(queries)} searches, {len(already_known)} companies already known.")
 
-        for query_index, query in enumerate(QUERIES, start=1):
+    with raw_path.open("a", encoding="utf-8") as raw_file:
 
-            print(f"\n🔎 [{query_index}/{len(QUERIES)}] {query}")
+        for query_index, query in enumerate(queries, start=1):
+
+            print(f"\n🔎 [{query_index}/{len(queries)}] {query}")
 
             try:
                 # Create a fresh DDGS client for every search.
@@ -422,6 +482,8 @@ def discover():
 
                     # Don't verify the same domain twice.
                     if domain in processed_domains:
+                        if domain in already_known:
+                            skipped_known += 1
                         continue
 
                     processed_domains.add(domain)
@@ -449,15 +511,7 @@ def discover():
                         continue
 
                     query_lower = query.lower()
-
-                    if "sousse" in query_lower:
-                        location = "Sousse, Tunisia"
-
-                    elif "tunis" in query_lower:
-                        location = "Tunis, Tunisia"
-
-                    else:
-                        location = None
+                    location = infer_location(query)
 
                     company_type = (
                         "startup"
@@ -508,4 +562,5 @@ def discover():
     print(f"Raw results:      {raw_count}")
     print(f"Verified domains: {verified_count}")
     print(f"Rejected:         {rejected_count}")
-    print(f"Unique domains:   {len(processed_domains)}")
+    print(f"Already known:    {skipped_known} (skipped)")
+    print(f"New domains seen: {len(processed_domains) - len(already_known)}")

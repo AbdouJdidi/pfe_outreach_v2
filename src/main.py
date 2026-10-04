@@ -2,7 +2,7 @@ import argparse
 
 from .analyze import analyze
 from .contacts import discover_contacts, show_contacts
-from .db import init_db
+from .db import init_db, stats
 from .discovery import discover
 from .outreach import (
     generate_outreach,
@@ -14,6 +14,30 @@ from .research import research_pending
 from .sender import send_approved
 
 
+def show_stats():
+    data = stats()
+    f = data["funnel"]
+    steps = [
+        ("Companies found", f["companies"]),
+        ("Website researched", f["researched"]),
+        ("Analyzed", f["analyzed"]),
+        ("Have a contact email", f["with_contact"]),
+        ("Have an email draft", f["with_outreach"]),
+    ]
+
+    print("\nPIPELINE")
+    for label, value in steps:
+        bar = "█" * min(40, value)
+        print(f"  {label:<22} {value:>5}  {bar}")
+
+    if data["priorities"]:
+        print("\nPRIORITY  " + "   ".join(f"{k}: {v}" for k, v in data["priorities"].items()))
+
+    if data["outreach"]:
+        print("OUTREACH  " + "   ".join(f"{k}: {v}" for k, v in data["outreach"].items()))
+    print()
+
+
 def build_parser():
     parser = argparse.ArgumentParser(
         prog="python -m src.main",
@@ -21,12 +45,17 @@ def build_parser():
     )
     sub = parser.add_subparsers(dest="command")
 
-    sub.add_parser("discover", help="find candidate companies")
+    p = sub.add_parser("discover", help="find candidate companies")
+    p.add_argument("--query", action="append",
+                   help='run only this search (repeatable), e.g. --query "DevOps startup Lyon"')
     sub.add_parser("research", help="fetch company websites")
     sub.add_parser("analyze", help="classify and score companies")
-    sub.add_parser("contacts", help="find contact emails")
+    p = sub.add_parser("contacts", help="find contact emails")
+    p.add_argument("--all", action="store_true",
+                   help="rescan companies that already have contacts")
     sub.add_parser("show-contacts", help="list contacts")
     sub.add_parser("all", help="discover → research → analyze → contacts")
+    sub.add_parser("stats", help="show the pipeline funnel")
 
     p = sub.add_parser("outreach", help="generate email drafts")
     p.add_argument("--regenerate", action="store_true",
@@ -54,13 +83,15 @@ def main():
     args = parser.parse_args()
 
     if args.command == "discover":
-        discover()
+        discover(queries=args.query)
     elif args.command == "research":
         research_pending()
     elif args.command == "analyze":
         analyze()
     elif args.command == "contacts":
-        discover_contacts()
+        discover_contacts(include_scanned=args.all)
+    elif args.command == "stats":
+        show_stats()
     elif args.command == "show-contacts":
         show_contacts()
     elif args.command == "all":

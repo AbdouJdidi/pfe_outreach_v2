@@ -1,0 +1,68 @@
+# One search per line. Lines starting with # are ignored.
+# Edit freely: more specific searches find better companies.
+# Re-running `discover` skips companies already in your database.
+
+# --- Tunisia: PFE offers (companies that already host PFE students) ---
+offre stage PFE 2027 DevOps Tunisie
+offre stage PFE 2027 cloud Tunisie
+stage PFE 2027 ingénieur logiciel Tunis
+stage PFE 2027 intelligence artificielle Tunisie
+stage PFE 2027 Sousse informatique
+sujets PFE 2027 entreprise informatique Tunisie
+stage PFE DevOps Kubernetes Tunis
+stage PFE MLOps Tunisie
+
+# --- Tunisia: companies by city and niche ---
+société de développement logiciel Sousse
+entreprise informatique Sousse
+startup Sousse technologie
+Novation City Sousse startups
+software company Sousse Tunisia
+société de services informatiques Tunis
+ESN Tunisie DevOps cloud
+startup intelligence artificielle Tunisie
+startup SaaS tunisienne
+entreprise cloud Tunisie
+Technopole El Ghazala entreprises informatiques
+Technopole de Sfax entreprises informatiques
+software company Sfax Tunisia
+offshore software development company Tunisia
+nearshore development company Tunisia
+data engineering company Tunisia
+fintech startup Tunisia
+cybersecurity company Tunisia
+
+# --- France (very common for Tunisian PFE students) ---
+stage de fin d'études DevOps 2027 France
+stage ingénieur cloud 2027 Paris
+stage fin d'études intelligence artificielle startup Paris
+ESN cloud DevOps Lyon
+cloud souverain France entreprise
+startup MLOps France
+scale-up SaaS France stage
+AWS partner consulting France
+infogérance cloud France
+
+# --- Europe: cloud / DevOps / platform engineering ---
+DevOps consulting company Germany
+Kubernetes consulting company Europe
+platform engineering company Europe
+managed cloud services provider Europe
+AWS Advanced Consulting Partner Europe
+open source infrastructure company Europe
+DevOps consultancy Belgium
+cloud consulting Switzerland
+cloud native startup Netherlands
+
+# --- Europe: AI ---
+AI agents startup Europe
+LLM startup Europe
+applied AI company Europe
+MLOps platform startup Europe
+generative AI startup Berlin
+
+# --- Canada / remote ---
+startup IA Montréal stage
+DevOps company Montreal
+remote DevOps internship startup
+remote software engineering internship startup Europe
