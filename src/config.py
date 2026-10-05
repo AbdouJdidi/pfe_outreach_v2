@@ -25,3 +25,26 @@ class Settings:
     send_delay_max: int = int(os.getenv("SEND_DELAY_MAX", "180"))
     min_outreach_score: int = int(os.getenv("MIN_OUTREACH_SCORE", "50"))
 settings = Settings()
+
+
+def _sanity_check(s):
+    problems = []
+
+    if not 0 <= s.min_outreach_score <= 100:
+        problems.append(
+            f"MIN_OUTREACH_SCORE={s.min_outreach_score} must be between 0 and 100 "
+            "(scores are 0-100; this is probably a typo in .env)"
+        )
+    if s.send_delay_max < s.send_delay_min:
+        problems.append(
+            f"SEND_DELAY_MAX ({s.send_delay_max}) is smaller than "
+            f"SEND_DELAY_MIN ({s.send_delay_min}) in .env"
+        )
+    if s.daily_send_limit < 1:
+        problems.append(f"DAILY_SEND_LIMIT={s.daily_send_limit} must be at least 1")
+
+    for p in problems:
+        print(f"⚠ .env problem: {p}")
+
+
+_sanity_check(settings)

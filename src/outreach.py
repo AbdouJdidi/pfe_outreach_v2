@@ -70,6 +70,43 @@ INTEREST_BY_ANGLE = {
     "software": "building reliable software for real users",
 }
 
+EMAIL_TEMPLATE_FR = [
+    "Je postule pour un stage de fin d'études (PFE) chez {company}, à partir de "
+    "{start}. Je suis élève-ingénieur en dernière année à {school}, avec un fort "
+    "intérêt pour le cloud, le DevOps et l'IA appliquée.",
+
+    "J'ai effectué quatre stages chez Satoripop, Tunisie Telecom, VISIOAD et "
+    "Dot-IT, où j'ai développé une expérience en DevOps et cloud, développement "
+    "full-stack, génie logiciel et IA appliquée. J'ai également travaillé sur "
+    "des projets freelance, ce qui m'a appris à construire des solutions "
+    "adaptées aux besoins réels des clients.",
+
+    "En parallèle de mes études, j'ai développé ClipForge, un agent IA de "
+    "clipping conçu pour automatiser une partie du flux de production de "
+    "contenu avec une supervision minimale.",
+
+    "Je suis également certifié AWS Certified Solutions Architect – Associate "
+    "et AWS Certified Cloud Practitioner.",
+
+    "{company_paragraph}",
+
+    "Je serais ravi de contribuer à {company} en tant que stagiaire PFE et "
+    "d'échanger sur la façon dont mon profil pourrait s'intégrer à votre "
+    "équipe technique. Mon CV est joint.",
+]
+
+INTEREST_BY_ANGLE_FR = {
+    "cloud": "l'infrastructure cloud et le DevOps",
+    "ai": "l'IA appliquée et les systèmes logiciels intelligents",
+    "software": "la création de logiciels fiables pour de vrais utilisateurs",
+}
+
+# Companies in these locations get the French template by default.
+FRENCH_LOCATIONS = {
+    "Sousse, Tunisia", "Sfax, Tunisia", "Tunis, Tunisia", "Tunisia",
+    "Paris, France", "Lyon, France", "France",
+}
+
 
 # ---------------------------------------------------------
 # PROFILE
@@ -99,11 +136,29 @@ def load_profile():
 RECRUITING_TYPES = {"careers", "jobs", "recruiting", "hr"}
 CAREER_PAGE_HINTS = ["career", "internship", "stage", "jobs", "recruit", "join"]
 
+# Functional mailboxes that are never a useful PFE contact, even as a last resort.
+NEVER_CONTACT_LOCALS = {
+    "sales", "marketing", "press", "media", "billing", "legal", "privacy",
+    "security", "webmaster", "noreply", "no-reply", "abuse", "newsletter",
+    "unsubscribe", "accounts", "accounting", "invoice", "invoices",
+}
+
+
+def is_personal_looking(local):
+    """first.last@, first_last@, or a single real-looking name (not a function)."""
+    if local in NEVER_CONTACT_LOCALS:
+        return False
+    parts = re.split(r"[._]", local)
+    if len(parts) == 2 and all(p.isalpha() and len(p) >= 2 for p in parts):
+        return True
+    return local.isalpha() and 3 <= len(local) <= 15
+
 
 def contact_rank(contact):
     """Lower is better. None means: do not email this address."""
     contact_type = contact["contact_type"]
     source = (contact["source_url"] or "").lower()
+    local = contact["email"].split("@")[0].lower()
 
     if contact_type in RECRUITING_TYPES:
         return 0
@@ -117,7 +172,12 @@ def contact_rank(contact):
     if contact_type == "info":
         return 3
 
-    # Personal emails found on random pages (sales, press, blog authors...)
+    # Last resort: a real-looking person found on the site, e.g. the one case
+    # that made outreach find 0 contacts (companies with only a name@ email).
+    if local not in NEVER_CONTACT_LOCALS and is_personal_looking(local):
+        return 4
+
+    # sales@, press@, billing@... genuinely not worth emailing for a PFE.
     return None
 
 
@@ -245,24 +305,40 @@ GENERIC_LOCALS = {
 }
 
 
-def build_greeting(contact, company_name):
+def build_greeting(contact, company_name, lang="en"):
     local = contact["email"].split("@")[0].lower()
 
-    # first.last@ or first_last@ -> "Dear First Last,"
+    # first.last@ or first_last@ -> "Dear First Last," / "Bonjour First Last,"
     parts = re.split(r"[._]", local)
     if (
         len(parts) == 2
         and all(p.isalpha() and len(p) >= 2 for p in parts)
         and local not in GENERIC_LOCALS
     ):
-        return f"Dear {parts[0].title()} {parts[1].title()},"
+        name = f"{parts[0].title()} {parts[1].title()}"
+        return f"Bonjour {name}," if lang == "fr" else f"Dear {name},"
 
     # Anything else (incl. dmitry@, mduda@): we can't safely tell a first name
     # from initial+surname, so use the team greeting. Edit it in `review`.
+    if lang == "fr":
+        return f"Bonjour à l'équipe {company_name},"
     return f"Dear {company_name} Team,"
 
 
-def build_subject(profile, angle):
+SUBJECT_AREA_FR = {
+    "cloud": "Cloud & DevOps",
+    "ai": "IA appliquée & génie logiciel",
+    "software": "Génie logiciel",
+}
+
+
+def build_subject(profile, angle, lang="en"):
+    if lang == "fr":
+        area = SUBJECT_AREA_FR[angle]
+        return (
+            f"Candidature PFE – {area} – "
+            f"{profile['pfe_start']} ({profile['pfe_duration']}) – {profile['name']}"
+        )
     area = profile["angles"][angle]["subject_area"]
     return (
         f"PFE Application – {area} – "
@@ -289,9 +365,21 @@ def angle_from_clause(clause, fallback):
     return "ai" if ai >= cloud else "cloud"
 
 
-def build_company_paragraph(company_name, clause, angle):
+def choose_language(company):
+    """French for Tunisian/French companies, English everywhere else."""
+    location = (company["location"] or "") if hasattr(company, "keys") and "location" in company.keys() else ""
+    return "fr" if location in FRENCH_LOCATIONS else "en"
+
+
+def build_company_paragraph(company_name, clause, angle, lang="en"):
     if not clause:
         return ""
+    if lang == "fr":
+        interest = INTEREST_BY_ANGLE_FR[angle]
+        return (
+            f"Ce qui m'intéresse chez {company_name}, c'est {clause}. "
+            f"Cela correspond fortement à mon intérêt pour {interest}."
+        )
     interest = INTEREST_BY_ANGLE[angle]
     return (
         f"What interests me about {company_name} is {clause}. "
@@ -299,17 +387,19 @@ def build_company_paragraph(company_name, clause, angle):
     )
 
 
-def build_body(profile, angle, greeting, company_name, company_paragraph):
+def build_body(profile, angle, greeting, company_name, company_paragraph, lang="en"):
     values = {
         "company": company_name,
         "start": profile["pfe_start"],
         "school": profile["school"],
         "company_paragraph": company_paragraph,
     }
-    paragraphs = [greeting] + [p.format(**values) for p in EMAIL_TEMPLATE]
+    template = EMAIL_TEMPLATE_FR if lang == "fr" else EMAIL_TEMPLATE
+    paragraphs = [greeting] + [p.format(**values) for p in template]
 
+    sign_off = "Cordialement," if lang == "fr" else "Best regards,"
     signature = "\n".join(
-        ["Best regards,", profile["name"], profile["phone"], *profile.get("links", [])]
+        [sign_off, profile["name"], profile["phone"], *profile.get("links", [])]
     )
 
     return "\n\n".join(p.strip() for p in paragraphs + [signature] if p and p.strip())
@@ -563,12 +653,32 @@ def generate_company_paragraph(company, angle, profile):
 # COMMANDS
 # ---------------------------------------------------------
 
+def diagnose_empty_contacts(min_score):
+    all_contacts = get_contacts(5000)
+    if not all_contacts:
+        print("No contacts in the database at all. Run: python -m src.main contacts")
+        return
+
+    low_score = sum(1 for c in all_contacts if (c["score"] or 0) < min_score)
+    no_rank = sum(1 for c in all_contacts if contact_rank(c) is None)
+    companies = {c["company_id"] for c in all_contacts}
+
+    print(
+        f"No suitable contacts found, out of {len(all_contacts)} emails "
+        f"across {len(companies)} companies:\n"
+        f"  - {low_score} below MIN_OUTREACH_SCORE={min_score}\n"
+        f"  - {no_rank} are functional mailboxes with no usable name "
+        f"(sales@, press@, billing@...)\n"
+        "Lower MIN_OUTREACH_SCORE in .env if the score cutoff looks too strict."
+    )
+
+
 def generate_outreach(regenerate=False, limit=None):
     profile = load_profile()
     contacts = choose_contacts()
 
     if not contacts:
-        print("No suitable contacts found.")
+        diagnose_empty_contacts(settings.min_outreach_score)
         return
 
     already = companies_with_outreach()
@@ -770,6 +880,72 @@ def review_outreach():
 
         else:
             print("Unknown option.")
+
+
+def bulk_approve_clean():
+    """Approve every clean (auto-validated) draft at once; needs_review stays untouched."""
+    rows = get_outreach("draft")
+
+    if not rows:
+        print("No clean drafts to approve. Check: python -m src.main show-outreach --status needs_review")
+        return
+
+    print(f"\n{len(rows)} drafts passed every automated check (grounded fact, no "
+          f"hallucination, correct grammar, matching angle):\n")
+    for row in rows:
+        print(f"  • {row['name']:<28} → {row['email']}")
+
+    needs_review = get_outreach("needs_review")
+    if needs_review:
+        print(f"\n{len(needs_review)} more need manual review (failed a check) — "
+              "not touched by this command:")
+        for row in needs_review:
+            print(f"  • {row['name']:<28} — {row['notes']}")
+
+    if input(f"\nApprove all {len(rows)} clean drafts? Type YES: ").strip() != "YES":
+        print("Cancelled.")
+        return
+
+    for row in rows:
+        update_outreach(row["id"], status="approved", notes=None)
+
+    print(f"✓ Approved {len(rows)}.")
+    if needs_review:
+        print(f"Review the remaining {len(needs_review)} by hand: python -m src.main review")
+
+
+def quick_review():
+    """One line per draft: company + the AI-written sentence only. y/r/s/q."""
+    skipped = set()
+
+    while True:
+        rows = [r for r in get_outreach("draft,needs_review") if r["id"] not in skipped]
+
+        if not rows:
+            print("\nDone." if skipped else "\nNothing left to review. 🎉")
+            return
+
+        row = rows[0]
+        flag = f"  ⚠ {row['notes']}" if row["notes"] else ""
+        print(f"\n[{len(rows)} left] {row['name']} ({row['email']}){flag}")
+        print(f"  {row['company_paragraph'] or '(no clause — check needs_review)'}")
+
+        choice = input("  [y]es  [r]eject  [s]kip  [f]ull email  [q]uit > ").strip().lower()
+
+        if choice == "q":
+            return
+        elif choice == "s":
+            skipped.add(row["id"])
+        elif choice == "y":
+            update_outreach(row["id"], status="approved", notes=None)
+            print("  ✓ approved")
+        elif choice == "r":
+            update_outreach(row["id"], status="rejected")
+            print("  ✗ rejected")
+        elif choice == "f":
+            print_draft(row)
+        else:
+            print("  unknown option")
 
 
 def reset_outreach():

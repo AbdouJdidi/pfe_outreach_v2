@@ -5,7 +5,9 @@ from .contacts import discover_contacts, show_contacts
 from .db import init_db, stats
 from .discovery import discover
 from .outreach import (
+    bulk_approve_clean,
     generate_outreach,
+    quick_review,
     reset_outreach,
     review_outreach,
     show_outreach,
@@ -66,7 +68,11 @@ def build_parser():
     p.add_argument("--status",
                    help="filter, e.g. draft,needs_review or approved")
 
-    sub.add_parser("review", help="approve / edit / reject drafts one by one")
+    p = sub.add_parser("review", help="approve / edit / reject drafts one by one")
+    p.add_argument("--quick", action="store_true",
+                   help="one line per draft (company + AI sentence only)")
+    p.add_argument("--auto-clean", action="store_true",
+                   help="approve all drafts that passed every automated check, in one go")
     sub.add_parser("reset-outreach", help="delete all unsent drafts")
 
     p = sub.add_parser("send", help="send approved emails with your CV")
@@ -104,7 +110,12 @@ def main():
     elif args.command == "show-outreach":
         show_outreach(status=args.status)
     elif args.command == "review":
-        review_outreach()
+        if args.auto_clean:
+            bulk_approve_clean()
+        elif args.quick:
+            quick_review()
+        else:
+            review_outreach()
     elif args.command == "reset-outreach":
         reset_outreach()
     elif args.command == "send":

@@ -45,9 +45,14 @@ HALLUCINATED = {
 
 
 def run(monkeypatch, profile, responses):
+    from dataclasses import replace
+
     ask, calls = fake_llm(responses)
     monkeypatch.setattr(outreach, "ask_ollama", ask)
     monkeypatch.setattr(outreach, "load_profile", lambda: profile)
+    # Tests must not depend on whatever MIN_OUTREACH_SCORE is in the
+    # developer's real .env.
+    monkeypatch.setattr(outreach, "settings", replace(outreach.settings, min_outreach_score=0))
     outreach.generate_outreach()
     return calls
 
@@ -107,3 +112,26 @@ def test_rerun_does_not_duplicate(temp_db, monkeypatch, profile):
 
     assert calls == []
     assert len(temp_db.get_outreach()) == 1
+
+
+def test_bulk_approve_clean_leaves_needs_review_alone(temp_db, monkeypatch):
+    temp_db.upsert_company({"name": "Clean", "domain": "clean.com", "verified": 1})
+    temp_db.save_outreach(1, None, "s", "b", status="draft")
+    temp_db.upsert_company({"name": "Flagged", "domain": "flag.com", "verified": 1})
+    temp_db.save_outreach(2, None, "s", "b", status="needs_review", notes="evidence_quote not found")
+
+    monkeypatch.setattr("builtins.input", lambda *_: "YES")
+    outreach.bulk_approve_clean()
+
+    statuses = {r["name"]: r["status"] for r in temp_db.get_outreach()}
+    assert statuses == {"Clean": "approved", "Flagged": "needs_review"}
+
+
+def test_bulk_approve_clean_requires_confirmation(temp_db, monkeypatch):
+    temp_db.upsert_company({"name": "Clean", "domain": "clean.com", "verified": 1})
+    temp_db.save_outreach(1, None, "s", "b", status="draft")
+
+    monkeypatch.setattr("builtins.input", lambda *_: "no")
+    outreach.bulk_approve_clean()
+
+    assert temp_db.get_outreach()[0]["status"] == "draft"

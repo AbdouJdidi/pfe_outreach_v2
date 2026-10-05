@@ -155,12 +155,14 @@ def extract_emails(text):
     return emails
 
 
-def fetch_page(url, timeout=15):
+def fetch_page(url, timeout=10):
+    # (connect_timeout, read_timeout): caps each read, so a server trickling
+    # data one byte at a time can't stall the whole run past ~10-15s.
     try:
         response = requests.get(
             url,
             headers=HEADERS,
-            timeout=timeout,
+            timeout=(timeout, timeout),
             allow_redirects=True,
         )
 

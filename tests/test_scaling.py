@@ -10,7 +10,10 @@ def set_score(company_id, score):
         c.execute("UPDATE analyses SET score = ? WHERE company_id = ?", (score, company_id))
 
 
-def test_low_score_companies_get_no_email(temp_db):
+def test_low_score_companies_get_no_email(temp_db, override_settings):
+    import src.outreach as outreach
+    override_settings(outreach, min_outreach_score=0)  # test sets its own threshold via arg
+
     good = add_company("Good", "good.com", "We build cloud software.")
     weak = add_company("Weak", "weak.com", "We sell furniture.")
     temp_db.save_contact(good, "jobs@good.com", "jobs", "https://good.com/jobs", 90)

@@ -39,8 +39,16 @@ def smtp(monkeypatch):
 def ready(temp_db, tmp_path, override_settings):
     cv = tmp_path / "My_CV.pdf"
     cv.write_bytes(b"%PDF-1.4 test")
+    # Fixed, test-safe values: never depend on the developer's real .env
+    # (which might have e.g. SEND_DELAY_MAX smaller than SEND_DELAY_MIN).
     override_settings(
-        sender, gmail_address="me@gmail.com", gmail_app_password="x" * 16, cv_path=str(cv),
+        sender,
+        gmail_address="me@gmail.com",
+        gmail_app_password="x" * 16,
+        cv_path=str(cv),
+        send_delay_min=0,
+        send_delay_max=0,
+        daily_send_limit=15,
     )
 
     for i, (name, email) in enumerate(APPROVED, start=1):
